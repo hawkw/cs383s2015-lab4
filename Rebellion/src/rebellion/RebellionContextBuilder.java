@@ -37,6 +37,7 @@ public class RebellionContextBuilder extends DefaultContext<Object> implements
 		int visNeighbors = (Integer)p.getValue("visNeighbors");
 		double govLegitimacy = (Double)p.getValue("govLegitimacy");
 		int maxJailTerm = (Integer)p.getValue("maxJailTerm");
+		final int endAt = (Integer)p.getValue("endAt");
 		
 		// create space
 		final ContinuousSpace<Object> space = ContinuousSpaceFactoryFinder
@@ -100,6 +101,10 @@ public class RebellionContextBuilder extends DefaultContext<Object> implements
 
 		// add coverage counter to context
 		context.add(new CoverageCounter());
+		
+		// if a max number of ticks is specified, halt the model after
+		// that many ticks
+		if (endAt > 0)RunEnvironment.getInstance().endAt(endAt);
 		
 		return context;
 	}
