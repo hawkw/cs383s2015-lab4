@@ -12,6 +12,12 @@
 						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
 									
 		/>
+				<parameter name="maxJailTerm" displayName="Max Jail Term" type="int" 
+						defaultValue="30" 
+						isReadOnly="false" 
+						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
+									
+		/>
 				<parameter name="govLegitimacy" displayName="Government Legitimacy" type="double" 
 						defaultValue="0.8" 
 						isReadOnly="false" 
@@ -24,6 +30,12 @@
 						converter="repast.simphony.parameter.StringConverterFactory$DoubleConverter"
 									
 		/>
+				<parameter name="gridWidth" displayName="Grid Width" type="int" 
+						defaultValue="40" 
+						isReadOnly="false" 
+						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
+									
+		/>
 				<parameter name="iniCopsDensity" displayName="Initial Cops Density" type="double" 
 						defaultValue="0.04" 
 						isReadOnly="false" 
@@ -32,24 +44,6 @@
 		/>
 				<parameter name="visNeighbors" displayName="Neighbors Visibility Radius" type="int" 
 						defaultValue="2" 
-						isReadOnly="false" 
-						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
-									
-		/>
-				<parameter name="maxJailTerm" displayName="Max Jail Term" type="int" 
-						defaultValue="30" 
-						isReadOnly="false" 
-						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
-									
-		/>
-				<parameter name="gridWidth" displayName="Grid Width" type="int" 
-						defaultValue="40" 
-						isReadOnly="false" 
-						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
-									
-		/>
-				<parameter name="endAt" displayName="Max Number of Ticks" type="int" 
-						defaultValue="0" 
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
 									

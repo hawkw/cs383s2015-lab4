@@ -1,0 +1,14 @@
+<repast.simphony.data2.engine.FileSinkDescriptor>
+  <name>CSV output</name>
+  <dataSet>People Data</dataSet>
+  <delimiter>,</delimiter>
+  <format>TABULAR</format>
+  <sourceIds class="linked-hash-set">
+    <string>Active People</string>
+    <string>Jailed People</string>
+    <string>Quiet People</string>
+    <string>tick</string>
+  </sourceIds>
+  <fileName>rebellion-.csv</fileName>
+  <addTimeStamp>true</addTimeStamp>
+</repast.simphony.data2.engine.FileSinkDescriptor>

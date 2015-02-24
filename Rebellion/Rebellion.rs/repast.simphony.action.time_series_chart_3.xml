@@ -18,6 +18,7 @@
     <alpha>255</alpha>
   </gridLineColor>
   <showGrid>true</showGrid>
+  <showLegend>true</showLegend>
   <seriesIds>
     <entry>
       <string>Active People</string>
@@ -56,5 +57,6 @@
       </SeriesData>
     </entry>
   </seriesIds>
+  <dataValueIds/>
   <plotRangeLength>-1</plotRangeLength>
 </repast.simphony.chart2.engine.TimeSeriesChartDescriptor>
