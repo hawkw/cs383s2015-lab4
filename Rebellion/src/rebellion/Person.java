@@ -17,7 +17,7 @@ import repast.simphony.util.SimUtilities;
  * @author grace
  * Person class
  */
-public class Person {
+public class Person implements Agent {
 
 	private Grid <Object> grid;
 	private ContinuousSpace <Object> space;
@@ -120,6 +120,7 @@ public class Person {
 	 * Step
 	 */
 	@ScheduledMethod(start = 1, interval = 1, priority = 0)
+	@Override
 	public void step() {
 
 		// if jailTurn == 0 (not in jail), then move and determine behavior

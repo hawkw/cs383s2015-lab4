@@ -88,7 +88,7 @@ public class RebellionContextBuilder extends DefaultContext<Object> implements
 
 		// create cops
 		for (int i = 0; i < copsCount; ++i) {
-			Cop cop = new Cop(grid, space, visNeighbors);
+			Agent cop = new Cop(grid, space, visNeighbors);
 			context.add(cop);
 		}
 
