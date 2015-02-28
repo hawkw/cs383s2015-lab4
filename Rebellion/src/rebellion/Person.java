@@ -4,6 +4,8 @@
 package rebellion;
 
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 import repast.simphony.engine.schedule.ScheduledMethod;
 import repast.simphony.query.space.grid.GridCell;
@@ -18,9 +20,23 @@ import repast.simphony.util.SimUtilities;
  * Person class
  */
 public class Person implements Agent {
+	
+	private static Integer nearest(int target, Map<Integer,Integer> ns) {
+		Integer best = null;
+		Integer bestDist = null;
+		for (Integer i : ns.keySet() ) {
+			if ((Math.abs(target - i) < bestDist) || (best == null && bestDist == null)) {
+				best = i;
+				bestDist = Math.abs(target - i);
+			}
+		}
+		return ns.get(best);
+	}
 
 	private Grid <Object> grid;
 	private ContinuousSpace <Object> space;
+	
+	private Map<Integer,Integer> prevNumJailed, prevNumActive;
 	
 	private double riskAversion; // fixed for lifetime; 0 to 1
 	private double perceivedHardship; // 0 to 1
@@ -47,6 +63,8 @@ public class Person implements Agent {
 		this.jailTerm = 0;
 		this.govLegitimacy = govLegitimacy; // user-specified
 		this.grievance = 0;
+		this.prevNumJailed = new HashMap<>();
+		this.prevNumActive = new HashMap<>();
 		set_colors();
 	}
 
