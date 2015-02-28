@@ -25,7 +25,7 @@ public class Person implements Agent {
 		Integer best = null;
 		Integer bestDist = null;
 		for (Integer i : ns.keySet() ) {
-			if ((Math.abs(target - i) < bestDist) || (best == null && bestDist == null)) {
+			if ((best == null && bestDist == null) || (Math.abs(target - i) < bestDist)) {
 				best = i;
 				bestDist = Math.abs(target - i);
 			}
@@ -74,6 +74,7 @@ public class Person implements Agent {
 	private void calc_grievance() {
 		this.grievance = this.perceivedHardship * (1 - this.govLegitimacy);
 	}
+
 	
 	/*
 	 * Calculate arrest probability
@@ -83,6 +84,7 @@ public class Person implements Agent {
 		
 		int cCount = 0; // total cops
 		int pTotal = 0; // total people
+		int pJailedCount = 0;
 		int pActiveCount = 1; // total people who are active
 							  // at least one so formula won't have zero in denominator
 		
@@ -96,8 +98,11 @@ public class Person implements Agent {
 			pTotal += p.size();
 			Object obj = grid.getObjectAt(p.getPoint().getX(), p.getPoint().getY());
 			if (obj instanceof Person) {
-				if (((Person)obj).active == true)
+				if (((Person)obj).active) {
 					pActiveCount++;
+				} else if (((Person)obj).jailTerm > 0) {
+					pJailedCount++;
+				}
 			}
 		}
 		
@@ -108,10 +113,15 @@ public class Person implements Agent {
 		}
 		
 		// calculate arrest probability
-		this.arrestProb = 1 - Math.exp(-Constants.K * Math.floor(cCount/pActiveCount));
+		//this.arrestProb = 1 - Math.exp(-Constants.K * Math.floor(cCount/pActiveCount));
+		if (prevNumJailed.isEmpty() || prevNumActive.isEmpty()) {
+			this.arrestProb = 0;
+		} else {
+			this.arrestProb = (double)nearest(pActiveCount, prevNumActive) + (double)nearest(pJailedCount,prevNumJailed);
+		}
 		
-		if (Constants.DEBUG)
-			System.out.println("arrestProb "+arrestProb+" cCount "+cCount+" pActiveCount "+pActiveCount);
+		//if (Constants.DEBUG)
+		//	System.out.println("arrestProb "+arrestProb+" cCount "+cCount+" pActiveCount "+pActiveCount);
 	}
 
 	/* 
@@ -140,18 +150,40 @@ public class Person implements Agent {
 	@ScheduledMethod(start = 1, interval = 1, priority = 0)
 	@Override
 	public void step() {
+		GridPoint location = grid.getLocation(this);
+		// people nearby
+		List<GridCell<Person>> personNeighborhood = new GridCellNgh<Person>(
+				grid, location, Person.class, visNeighbors, 
+				visNeighbors).getNeighborhood(false);
+		
+		int pJailedCount = 0;
+		int pActiveCount = 0; 
+		// count people
+		for (GridCell<Person> p : personNeighborhood) {
+			Object obj = grid.getObjectAt(p.getPoint().getX(), p.getPoint().getY());
+			if (obj instanceof Person) {
+				if (((Person)obj).active) {
+					pActiveCount++;
+				} else if (((Person)obj).jailTerm > 0) {
+					pJailedCount++;
+				}
+			}
+		}
+
+		
+		if (this.active) {
+			this.prevNumActive.put(pActiveCount, 1);
+			this.prevNumJailed.put(pJailedCount, 1);
+		}
 
 		// if jailTurn == 0 (not in jail), then move and determine behavior
 		if (this.jailTerm == 0) {
 			
+			this.prevNumActive.put(pActiveCount, -1);
+			this.prevNumJailed.put(pJailedCount, -1);
+			
 			this.active = false;
-			GridPoint location = grid.getLocation(this);
-			
-			// people nearby
-			List<GridCell<Person>> personNeighborhood = new GridCellNgh<Person>(
-					grid, location, Person.class, visNeighbors, 
-					visNeighbors).getNeighborhood(false);
-			
+
 			// look for empty cells
 			List<GridCell<Person>> freeCells = SMUtils
 				.getFreeGridCells(personNeighborhood);
@@ -178,8 +210,7 @@ public class Person implements Agent {
 			this.calc_grievance();
 			this.est_arrest_prob(personNeighborhood, copNeighborhood);
 			
-			if ((this.grievance - this.riskAversion * this.arrestProb) > 
-				Constants.THRESHOLD) {
+			if ((this.grievance - this.riskAversion) > this.arrestProb) {
 				this.active = true;
 				if (Constants.DEBUG)
 					System.out.println("ACTIVE grievance "+grievance+
