@@ -3,9 +3,10 @@
  */
 package rebellion;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
+import java.util.Set;
 
 import repast.simphony.engine.schedule.ScheduledMethod;
 import repast.simphony.query.space.grid.GridCell;
@@ -21,22 +22,36 @@ import repast.simphony.util.SimUtilities;
  */
 public class Person implements Agent {
 	
-	private static Integer nearest(int target, Map<Integer,Integer> ns) {
-		Integer best = null;
-		Integer bestDist = null;
-		for (Integer i : ns.keySet() ) {
-			if ((best == null && bestDist == null) || (Math.abs(target - i) < bestDist)) {
-				best = i;
-				bestDist = Math.abs(target - i);
+	private static int NUM_NEIGHBORS = 150;
+	
+	private static double knearest(int target, List<Pair> ns) {
+		Set<Pair> neighbors = new HashSet<>();
+		
+		for (int i = 0; i <= NUM_NEIGHBORS; i++) {
+			Pair best = null;
+			Integer bestDist = null;
+			for (Pair n : ns ) {
+				if (
+						(best == null && bestDist == null) || 
+						((Math.abs(target - n.getNumCops()) < bestDist) && !neighbors.contains(n)) ) {
+					best = n;
+					bestDist = Math.abs(target - n.getNumCops());
+				}
 			}
+			neighbors.add(best);
 		}
-		return ns.get(best);
+		
+		double sum = 0.0;
+		for (Pair n : neighbors) {
+			sum += n.getWeight();
+		}
+		return sum;
 	}
 
 	private Grid <Object> grid;
 	private ContinuousSpace <Object> space;
 	
-	private Map<Integer,Integer> prevNumJailed, prevNumActive;
+	private List<Pair> prevNumCops;
 	
 	private double riskAversion; // fixed for lifetime; 0 to 1
 	private double perceivedHardship; // 0 to 1
@@ -63,8 +78,7 @@ public class Person implements Agent {
 		this.jailTerm = 0;
 		this.govLegitimacy = govLegitimacy; // user-specified
 		this.grievance = 0;
-		this.prevNumJailed = new HashMap<>();
-		this.prevNumActive = new HashMap<>();
+		this.prevNumCops = new ArrayList<>();
 		set_colors();
 	}
 
@@ -114,10 +128,10 @@ public class Person implements Agent {
 		
 		// calculate arrest probability
 		//this.arrestProb = 1 - Math.exp(-Constants.K * Math.floor(cCount/pActiveCount));
-		if (prevNumJailed.isEmpty() || prevNumActive.isEmpty()) {
+		if (prevNumCops.isEmpty()) {
 			this.arrestProb = 0;
 		} else {
-			this.arrestProb = (double)nearest(pActiveCount, prevNumActive) + (double)nearest(pJailedCount,prevNumJailed);
+			this.arrestProb = (double)knearest(cCount, prevNumCops);
 		}
 		
 		//if (Constants.DEBUG)
@@ -156,31 +170,25 @@ public class Person implements Agent {
 				grid, location, Person.class, visNeighbors, 
 				visNeighbors).getNeighborhood(false);
 		
-		int pJailedCount = 0;
-		int pActiveCount = 0; 
-		// count people
-		for (GridCell<Person> p : personNeighborhood) {
-			Object obj = grid.getObjectAt(p.getPoint().getX(), p.getPoint().getY());
-			if (obj instanceof Person) {
-				if (((Person)obj).active) {
-					pActiveCount++;
-				} else if (((Person)obj).jailTerm > 0) {
-					pJailedCount++;
-				}
-			}
+		GridCellNgh<Cop> copNgh = new GridCellNgh<Cop>(grid, location, Cop.class,
+				visNeighbors, visNeighbors);
+		List<GridCell<Cop>> copNeighborhood = copNgh.getNeighborhood(false);
+		
+		int cops = 0;
+		
+		// count cops
+		for (GridCell<Cop> c : copNeighborhood) {
+			cops += c.size();
 		}
-
 		
 		if (this.active) {
-			this.prevNumActive.put(pActiveCount, 1);
-			this.prevNumJailed.put(pJailedCount, 1);
+			this.prevNumCops.add(new Pair(cops, 0.1));
 		}
 
 		// if jailTurn == 0 (not in jail), then move and determine behavior
 		if (this.jailTerm == 0) {
 			
-			this.prevNumActive.put(pActiveCount, -1);
-			this.prevNumJailed.put(pJailedCount, -1);
+			this.prevNumCops.add(new Pair(cops, -0.1));
 			
 			this.active = false;
 
@@ -199,18 +207,12 @@ public class Person implements Agent {
 			GridPoint newGridPoint = chosenFreeCell.getPoint();
 			grid.moveTo(this, newGridPoint.getX(), newGridPoint.getY());
 			
-			// cops nearby
-			GridCellNgh<Cop> copNgh = new GridCellNgh<Cop>(grid, location, Cop.class,
-					visNeighbors, visNeighbors);
-			List<GridCell<Cop>> copNeighborhood = copNgh.getNeighborhood(false);
-
-			
 			// should this person be active (rebel)?
 			// calculate grievance and arrest probability
 			this.calc_grievance();
 			this.est_arrest_prob(personNeighborhood, copNeighborhood);
 			
-			if ((this.grievance - this.riskAversion) > this.arrestProb) {
+			if (((this.grievance - this.riskAversion) * this.arrestProb) > Constants.THRESHOLD) {
 				this.active = true;
 				if (Constants.DEBUG)
 					System.out.println("ACTIVE grievance "+grievance+
