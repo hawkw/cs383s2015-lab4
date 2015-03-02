@@ -8,7 +8,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import repast.simphony.engine.environment.RunEnvironment;
 import repast.simphony.engine.schedule.ScheduledMethod;
+import repast.simphony.parameter.Parameters;
 import repast.simphony.query.space.grid.GridCell;
 import repast.simphony.query.space.grid.GridCellNgh;
 import repast.simphony.random.RandomHelper;
@@ -24,13 +26,13 @@ public class Person implements Agent {
 	
 	private static int NUM_NEIGHBORS = 150;
 	
-	private static double knearest(int target, List<Pair> ns) {
+	private double knearest(int target) {
 		Set<Pair> neighbors = new HashSet<>();
 		
 		for (int i = 0; i <= NUM_NEIGHBORS; i++) {
 			Pair best = null;
 			Integer bestDist = null;
-			for (Pair n : ns ) {
+			for (Pair n : this.prevNumActive ) {
 				if (
 						(best == null && bestDist == null) || 
 						((Math.abs(target - n.getNumCops()) < bestDist) && !neighbors.contains(n)) ) {
@@ -40,7 +42,6 @@ public class Person implements Agent {
 			}
 			neighbors.add(best);
 		}
-		
 		double sum = 0.0;
 		for (Pair n : neighbors) {
 			sum += n.getWeight();
@@ -51,7 +52,7 @@ public class Person implements Agent {
 	private Grid <Object> grid;
 	private ContinuousSpace <Object> space;
 	
-	private List<Pair> prevNumCops;
+	private List<Pair> prevNumActive;
 	
 	private double riskAversion; // fixed for lifetime; 0 to 1
 	private double perceivedHardship; // 0 to 1
@@ -78,7 +79,7 @@ public class Person implements Agent {
 		this.jailTerm = 0;
 		this.govLegitimacy = govLegitimacy; // user-specified
 		this.grievance = 0;
-		this.prevNumCops = new ArrayList<>();
+		this.prevNumActive = new ArrayList<>();
 		set_colors();
 	}
 
@@ -99,8 +100,7 @@ public class Person implements Agent {
 		int cCount = 0; // total cops
 		int pTotal = 0; // total people
 		int pJailedCount = 0;
-		int pActiveCount = 1; // total people who are active
-							  // at least one so formula won't have zero in denominator
+		int pActiveCount = 0; // total people who are active
 		
 		// count cops
 		for (GridCell<Cop> c : copNeighborhood) {
@@ -128,10 +128,10 @@ public class Person implements Agent {
 		
 		// calculate arrest probability
 		//this.arrestProb = 1 - Math.exp(-Constants.K * Math.floor(cCount/pActiveCount));
-		if (prevNumCops.isEmpty()) {
+		if (prevNumActive.isEmpty()) {
 			this.arrestProb = 0;
 		} else {
-			this.arrestProb = (double)knearest(cCount, prevNumCops);
+			this.arrestProb = (double)knearest(pActiveCount);
 		}
 		
 		//if (Constants.DEBUG)
@@ -174,22 +174,24 @@ public class Person implements Agent {
 				visNeighbors, visNeighbors);
 		List<GridCell<Cop>> copNeighborhood = copNgh.getNeighborhood(false);
 		
-		int cops = 0;
-		
-		// count cops
-		for (GridCell<Cop> c : copNeighborhood) {
-			cops += c.size();
+		int pActiveCount = 0; // total people who are active
+	
+		// count people
+		for (GridCell<Person> p : personNeighborhood) {
+			Object obj = grid.getObjectAt(p.getPoint().getX(), p.getPoint().getY());
+			if (obj instanceof Person) {
+				if (((Person)obj).active) {
+					pActiveCount++;
+				}
+			}
 		}
-		
 		if (this.active) {
-			this.prevNumCops.add(new Pair(cops, 0.1));
+			this.prevNumActive.add(new Pair(pActiveCount, -0.1));
 		}
 
 		// if jailTurn == 0 (not in jail), then move and determine behavior
 		if (this.jailTerm == 0) {
-			
-			this.prevNumCops.add(new Pair(cops, -0.1));
-			
+
 			this.active = false;
 
 			// look for empty cells
@@ -212,7 +214,7 @@ public class Person implements Agent {
 			this.calc_grievance();
 			this.est_arrest_prob(personNeighborhood, copNeighborhood);
 			
-			if (((this.grievance - this.riskAversion) * this.arrestProb) > Constants.THRESHOLD) {
+			if (((this.grievance + this.riskAversion) * this.arrestProb) < Constants.THRESHOLD) {
 				this.active = true;
 				if (Constants.DEBUG)
 					System.out.println("ACTIVE grievance "+grievance+
@@ -222,7 +224,14 @@ public class Person implements Agent {
 			}
 			
 		} else if (this.jailTerm > 0) {
+			if (this.jailTerm == // if I was just arrested
+					(Integer)RunEnvironment
+						.getInstance()
+						.getParameters()
+						.getValue("maxJailTerm")
+						) this.prevNumActive.add(new Pair(pActiveCount, 0.1));	
 			this.jailTerm--; // decrement jail turn by 1 each step
+
 		}
 		
 		set_colors();
