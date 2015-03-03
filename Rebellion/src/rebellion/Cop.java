@@ -15,7 +15,7 @@ import repast.simphony.util.SimUtilities;
  * @author grace
  * Cop class
  */
-public class Cop {
+public class Cop implements Agent {
 	
 	private int visNeighbors; // neighborhood visibility
 	private Grid <Object> grid;
@@ -31,6 +31,10 @@ public class Cop {
 	/*
 	 * Step
 	 */
+	/* (non-Javadoc)
+	 * @see rebellion.Agent#step()
+	 */
+	@Override
 	@ScheduledMethod(start = 1, interval = 1, priority = 0)
 	public void step() {
 
@@ -75,6 +79,9 @@ public class Cop {
 	
 	/*
 	 * overrid for debugging purpose
+	 */
+	/* (non-Javadoc)
+	 * @see rebellion.Agent#toString()
 	 */
 	@Override
 	public String toString() {

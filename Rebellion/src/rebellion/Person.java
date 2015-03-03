@@ -3,9 +3,14 @@
  */
 package rebellion;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
+import repast.simphony.engine.environment.RunEnvironment;
 import repast.simphony.engine.schedule.ScheduledMethod;
+import repast.simphony.parameter.Parameters;
 import repast.simphony.query.space.grid.GridCell;
 import repast.simphony.query.space.grid.GridCellNgh;
 import repast.simphony.random.RandomHelper;
@@ -17,10 +22,37 @@ import repast.simphony.util.SimUtilities;
  * @author grace
  * Person class
  */
-public class Person {
+public class Person implements Agent {
+	
+	private static int NUM_NEIGHBORS = 150;
+	
+	private double knearest(int target) {
+		Set<Pair> neighbors = new HashSet<>();
+		
+		for (int i = 0; i <= NUM_NEIGHBORS; i++) {
+			Pair best = null;
+			Integer bestDist = null;
+			for (Pair n : this.prevNumActive ) {
+				if (
+						(best == null && bestDist == null) || 
+						((Math.abs(target - n.getNumCops()) < bestDist) && !neighbors.contains(n)) ) {
+					best = n;
+					bestDist = Math.abs(target - n.getNumCops());
+				}
+			}
+			neighbors.add(best);
+		}
+		double sum = 0.0;
+		for (Pair n : neighbors) {
+			sum += n.getWeight();
+		}
+		return sum;
+	}
 
 	private Grid <Object> grid;
 	private ContinuousSpace <Object> space;
+	
+	private List<Pair> prevNumActive;
 	
 	private double riskAversion; // fixed for lifetime; 0 to 1
 	private double perceivedHardship; // 0 to 1
@@ -47,6 +79,7 @@ public class Person {
 		this.jailTerm = 0;
 		this.govLegitimacy = govLegitimacy; // user-specified
 		this.grievance = 0;
+		this.prevNumActive = new ArrayList<>();
 		set_colors();
 	}
 
@@ -56,6 +89,7 @@ public class Person {
 	private void calc_grievance() {
 		this.grievance = this.perceivedHardship * (1 - this.govLegitimacy);
 	}
+
 	
 	/*
 	 * Calculate arrest probability
@@ -65,8 +99,8 @@ public class Person {
 		
 		int cCount = 0; // total cops
 		int pTotal = 0; // total people
-		int pActiveCount = 1; // total people who are active
-							  // at least one so formula won't have zero in denominator
+		int pJailedCount = 0;
+		int pActiveCount = 0; // total people who are active
 		
 		// count cops
 		for (GridCell<Cop> c : copNeighborhood) {
@@ -78,8 +112,11 @@ public class Person {
 			pTotal += p.size();
 			Object obj = grid.getObjectAt(p.getPoint().getX(), p.getPoint().getY());
 			if (obj instanceof Person) {
-				if (((Person)obj).active == true)
+				if (((Person)obj).active) {
 					pActiveCount++;
+				} else if (((Person)obj).jailTerm > 0) {
+					pJailedCount++;
+				}
 			}
 		}
 		
@@ -90,10 +127,15 @@ public class Person {
 		}
 		
 		// calculate arrest probability
-		this.arrestProb = 1 - Math.exp(-Constants.K * Math.floor(cCount/pActiveCount));
+		//this.arrestProb = 1 - Math.exp(-Constants.K * Math.floor(cCount/pActiveCount));
+		if (prevNumActive.isEmpty()) {
+			this.arrestProb = 0;
+		} else {
+			this.arrestProb = (double)knearest(pActiveCount);
+		}
 		
-		if (Constants.DEBUG)
-			System.out.println("arrestProb "+arrestProb+" cCount "+cCount+" pActiveCount "+pActiveCount);
+		//if (Constants.DEBUG)
+		//	System.out.println("arrestProb "+arrestProb+" cCount "+cCount+" pActiveCount "+pActiveCount);
 	}
 
 	/* 
@@ -120,19 +162,38 @@ public class Person {
 	 * Step
 	 */
 	@ScheduledMethod(start = 1, interval = 1, priority = 0)
+	@Override
 	public void step() {
+		GridPoint location = grid.getLocation(this);
+		// people nearby
+		List<GridCell<Person>> personNeighborhood = new GridCellNgh<Person>(
+				grid, location, Person.class, visNeighbors, 
+				visNeighbors).getNeighborhood(false);
+		
+		GridCellNgh<Cop> copNgh = new GridCellNgh<Cop>(grid, location, Cop.class,
+				visNeighbors, visNeighbors);
+		List<GridCell<Cop>> copNeighborhood = copNgh.getNeighborhood(false);
+		
+		int pActiveCount = 0; // total people who are active
+	
+		// count people
+		for (GridCell<Person> p : personNeighborhood) {
+			Object obj = grid.getObjectAt(p.getPoint().getX(), p.getPoint().getY());
+			if (obj instanceof Person) {
+				if (((Person)obj).active) {
+					pActiveCount++;
+				}
+			}
+		}
+		if (this.active) {
+			this.prevNumActive.add(new Pair(pActiveCount, -0.1));
+		}
 
 		// if jailTurn == 0 (not in jail), then move and determine behavior
 		if (this.jailTerm == 0) {
-			
+
 			this.active = false;
-			GridPoint location = grid.getLocation(this);
-			
-			// people nearby
-			List<GridCell<Person>> personNeighborhood = new GridCellNgh<Person>(
-					grid, location, Person.class, visNeighbors, 
-					visNeighbors).getNeighborhood(false);
-			
+
 			// look for empty cells
 			List<GridCell<Person>> freeCells = SMUtils
 				.getFreeGridCells(personNeighborhood);
@@ -148,19 +209,12 @@ public class Person {
 			GridPoint newGridPoint = chosenFreeCell.getPoint();
 			grid.moveTo(this, newGridPoint.getX(), newGridPoint.getY());
 			
-			// cops nearby
-			GridCellNgh<Cop> copNgh = new GridCellNgh<Cop>(grid, location, Cop.class,
-					visNeighbors, visNeighbors);
-			List<GridCell<Cop>> copNeighborhood = copNgh.getNeighborhood(false);
-
-			
 			// should this person be active (rebel)?
 			// calculate grievance and arrest probability
 			this.calc_grievance();
 			this.est_arrest_prob(personNeighborhood, copNeighborhood);
 			
-			if ((this.grievance - this.riskAversion * this.arrestProb) > 
-				Constants.THRESHOLD) {
+			if (((this.grievance + this.riskAversion) * this.arrestProb) < Constants.THRESHOLD) {
 				this.active = true;
 				if (Constants.DEBUG)
 					System.out.println("ACTIVE grievance "+grievance+
@@ -170,7 +224,14 @@ public class Person {
 			}
 			
 		} else if (this.jailTerm > 0) {
+			if (this.jailTerm == // if I was just arrested
+					(Integer)RunEnvironment
+						.getInstance()
+						.getParameters()
+						.getValue("maxJailTerm")
+						) this.prevNumActive.add(new Pair(pActiveCount, 0.1));	
 			this.jailTerm--; // decrement jail turn by 1 each step
+
 		}
 		
 		set_colors();
