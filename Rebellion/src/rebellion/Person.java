@@ -116,38 +116,24 @@ public class Person implements Agent {
 	 * @note this has been modified to use the learning algorithm we have implemented
 	 * @see Person#kNearest(int)
 	 */
-	private void est_arrest_prob(List<GridCell<Person>> personNeighborhood,
-			List<GridCell<Cop>> copNeighborhood) {
+	private void est_arrest_prob(List<GridCell<Person>> personNeighborhood) {
 
-		int cCount = 0; // total cops
-		int pTotal = 0; // total people
-		int pJailedCount = 0;
 		int pActiveCount = 0; // total people who are active
-
-		// count cops
-		for (GridCell<Cop> c : copNeighborhood) {
-			cCount += c.size();
-		}
-
-		// count people
+		
+		// count active people
 		for (GridCell<Person> p : personNeighborhood) {
-			pTotal += p.size();
-			Object obj = grid.getObjectAt(p.getPoint().getX(), p.getPoint()
-					.getY());
-			if (obj instanceof Person) {
-				if (((Person) obj).active) {
+			Object obj = grid.getObjectAt(
+					p.getPoint().getX(),
+					p.getPoint().getY()
+					);
+			if (obj instanceof Person && ((Person) obj).active)
 					pActiveCount++;
-				} else if (((Person) obj).jailTerm > 0) {
-					pJailedCount++;
-				}
-			}
 		}
 
 		if (Constants.DEBUG) {
 			// System.out.println(location.toString()+
 			// " visNeighbors "+visNeighbors);
 			System.out.println("active people nearby " + pActiveCount);
-			System.out.println("cops nearby " + cCount);
 		}
 
 		// calculate arrest probability
@@ -195,22 +181,18 @@ public class Person implements Agent {
 				grid, location, Person.class, visNeighbors, visNeighbors)
 				.getNeighborhood(false);
 
-		GridCellNgh<Cop> copNgh = new GridCellNgh<Cop>(grid, location,
-				Cop.class, visNeighbors, visNeighbors);
-		List<GridCell<Cop>> copNeighborhood = copNgh.getNeighborhood(false);
-
 		int pActiveCount = 0; // total people who are active
-
-		// count people
+		
+		// count active people
 		for (GridCell<Person> p : personNeighborhood) {
-			Object obj = grid.getObjectAt(p.getPoint().getX(), p.getPoint()
-					.getY());
-			if (obj instanceof Person) {
-				if (((Person) obj).active) {
+			Object obj = grid.getObjectAt(
+					p.getPoint().getX(),
+					p.getPoint().getY()
+					);
+			if (obj instanceof Person && ((Person) obj).active)
 					pActiveCount++;
-				}
-			}
 		}
+
 		if (this.active) {
 			this.prevNumActive.add(new Pair(pActiveCount, -0.1));
 		}
@@ -239,7 +221,7 @@ public class Person implements Agent {
 			// should this person be active (rebel)?
 			// calculate grievance and arrest probability
 			this.calc_grievance();
-			this.est_arrest_prob(personNeighborhood, copNeighborhood);
+			this.est_arrest_prob(personNeighborhood);
 
 			if (((this.grievance + this.riskAversion) * this.arrestProb) < Constants.THRESHOLD) {
 				this.active = true;
