@@ -24,7 +24,7 @@ import repast.simphony.util.SimUtilities;
  */
 public class Person implements Agent {
 	
-	private static int NUM_NEIGHBORS = 150;
+	private static int NUM_NEIGHBORS = 50;
 	
 	private double knearest(int target) {
 		Set<Pair> neighbors = new HashSet<>();
